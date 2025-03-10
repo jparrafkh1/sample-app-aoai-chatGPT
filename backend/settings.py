@@ -758,6 +758,26 @@ class _BaseSettings(BaseSettings):
     use_promptflow: bool = False
 
 
+class _AzureBingSearchSettings(BaseSettings):
+    model_config = SettingsConfigDict(
+        env_prefix="AZURE_BINGSEARCH_",
+        env_file=DOTENV_PATH,
+        extra="ignore",
+        env_ignore_empty=True
+    )
+    
+    endpoint: str
+    key: str
+    top_k: int = 5
+
+    def construct_payload_configuration(self) -> dict:
+        return {
+            "endpoint": self.endpoint,
+            "key": self.key,
+            "top_k": self.top_k
+        }
+
+
 class _AppSettings(BaseModel):
     base_settings: _BaseSettings = _BaseSettings()
     azure_openai: _AzureOpenAISettings = _AzureOpenAISettings()
@@ -768,6 +788,7 @@ class _AppSettings(BaseModel):
     chat_history: Optional[_ChatHistorySettings] = None
     datasource: Optional[DatasourcePayloadConstructor] = None
     promptflow: Optional[_PromptflowSettings] = None
+    bing_search: Optional[_AzureBingSearchSettings] = None
 
     @model_validator(mode="after")
     def set_promptflow_settings(self) -> Self:
@@ -829,6 +850,14 @@ class _AppSettings(BaseModel):
         except ValidationError as e:
             logging.warning("No datasource configuration found in the environment -- calls will be made to Azure OpenAI without grounding data.")
             logging.warning(e.errors())
+
+    @model_validator(mode="after")
+    def set_bing_search_settings(self) -> Self:
+        try:
+            self.bing_search = _AzureBingSearchSettings()
+        except ValidationError:
+            self.bing_search = None
+        return self
 
 
 app_settings = _AppSettings()
